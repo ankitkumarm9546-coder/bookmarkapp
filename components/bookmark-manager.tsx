@@ -26,6 +26,8 @@ export function BookmarkManager({ isAuthenticated, userId, userEmail }: Bookmark
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"signup" | "login">("login");
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -134,11 +136,24 @@ export function BookmarkManager({ isAuthenticated, userId, userEmail }: Bookmark
       return;
     }
 
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url.trim());
+    } catch {
+      setError("Please enter a valid URL.");
+      return;
+    }
+
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+      setError("URL must start with http:// or https://");
+      return;
+    }
+
     setLoading(true);
 
     const { error: insertError } = await supabase.from("bookmarks").insert({
       title: title.trim(),
-      url: url.trim()
+      url: parsedUrl.toString()
     });
 
     setLoading(false);
@@ -154,17 +169,21 @@ export function BookmarkManager({ isAuthenticated, userId, userEmail }: Bookmark
     notifyTabs();
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     setError(null);
+    setDeleteLoading(true);
 
-    const { error: deleteError } = await supabase.from("bookmarks").delete().eq("id", id);
+    const { error: deleteError } = await supabase.from("bookmarks").delete().eq("id", deleteTarget.id);
+    setDeleteLoading(false);
 
     if (deleteError) {
       setError(deleteError.message);
       return;
     }
 
-    setBookmarks((current) => current.filter((bookmark) => bookmark.id !== id));
+    setBookmarks((current) => current.filter((bookmark) => bookmark.id !== deleteTarget.id));
+    setDeleteTarget(null);
     notifyTabs();
   };
 
@@ -295,14 +314,14 @@ export function BookmarkManager({ isAuthenticated, userId, userEmail }: Bookmark
             </button>
           </form>
 
-          <p className="mt-4 text-xs text-slate-500">Bookmarks sync instantly across tabs.</p>
+          <p className="mt-4 text-xs text-slate-500"></p>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h3 className="font-display text-2xl font-semibold text-slate-900">Your bookmarks</h3>
-              <p className="mt-1 text-sm text-slate-600">Synced instantly across all sessions.</p>
+              <p className="mt-1 text-sm text-slate-600">Synced instantly.</p>
             </div>
             <div className="flex gap-2">
               <input
@@ -354,8 +373,8 @@ export function BookmarkManager({ isAuthenticated, userId, userEmail }: Bookmark
                   </a>
                   <button
                     type="button"
-                    onClick={() => handleDelete(bookmark.id)}
-                    className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                    onClick={() => setDeleteTarget(bookmark)}
+                    className="relative z-20 inline-flex h-11 w-24 shrink-0 cursor-pointer items-center justify-center rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
                   >
                     Delete
                   </button>
@@ -371,6 +390,36 @@ export function BookmarkManager({ isAuthenticated, userId, userEmail }: Bookmark
           ) : null}
         </article>
       </section>
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/30 px-4">
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">Confirm Delete</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-slate-900">"{deleteTarget.title}"</span>?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => setDeleteTarget(null)}
+                className="cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => void handleDelete()}
+                className="cursor-pointer rounded-md border border-red-300 bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-60"
+              >
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

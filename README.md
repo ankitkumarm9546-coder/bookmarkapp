@@ -1,10 +1,10 @@
-# Smart Bookmark App
+﻿# Smart Bookmark App
 
 ## Problems Faced and How I Solved Them
 
-1. **Supabase OAuth URL confusion (dashboard URL vs project API URL)**
-- **Problem:** Login and realtime failed because the wrong URL was used in `.env.local`.
-- **Solution:** Updated `NEXT_PUBLIC_SUPABASE_URL` to the correct project API URL format: `https://<project-ref>.supabase.co`.
+1. **Next.js and Supabase integration issue (new stack learning)**
+- **Problem:** I initially faced integration issues while wiring Supabase Auth and environment variables, which caused login/realtime failures.
+- **Solution:** Verified integration flow end-to-end and corrected project configuration, especially the Supabase API URL setup in `.env.local`.
 
 2. **SWC blocked on Windows (policy restriction)**
 - **Problem:** Next.js SWC native binary was blocked by local policy.
@@ -26,6 +26,21 @@
 - **Problem:** Mismatch warnings and inconsistent styles while iterating.
 - **Solution:** Standardized layout/styles and aligned server/client rendering patterns.
 
+7. **Supabase row-level security (RLS) blocking queries**
+- **Problem:** Queries silently failed due to RLS policies not allowing access for authenticated users.
+- **Solution:** Created proper RLS policies based on auth.uid() to allow user-scoped data access.
+
+8. **Realtime performance degradation with multiple subscriptions**
+- **Problem:** Multiple component-level subscriptions caused duplicate events and performance overhead.
+- **Solution:** Centralized realtime listeners and reused a single subscription instance across components.
+
+9. **State synchronization issues after mutations**
+- **Problem:** UI sometimes showed stale data immediately after insert/delete operations.
+- **Solution:** Combined optimistic updates with realtime events and manual state reconciliation.
+
+10. **Error handling gaps in async flows**
+- **Problem:** Silent failures from Supabase operations made debugging difficult.
+- **Solution:** Standardized error handling and logging patterns across all async calls.
 ---
 
 ## About the Project
@@ -112,3 +127,6 @@ npm run dev
 - `created_at`
 
 RLS policies ensure users can only read/write/delete their own bookmarks.
+
+
+

@@ -23,6 +23,7 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [authLoading, setAuthLoading] = useState<"signup" | "login" | null>(null);
 
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -89,17 +90,29 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
     tabChannel.close();
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (mode: "signup" | "login") => {
     setError(null);
+    setAuthLoading(mode);
 
     const callbackUrl = `${window.location.origin}/auth/callback`;
 
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: callbackUrl
+        redirectTo: callbackUrl,
+        queryParams:
+          mode === "signup"
+            ? {
+                prompt: "consent",
+                access_type: "offline"
+              }
+            : {
+                prompt: "select_account"
+              }
       }
     });
+
+    setAuthLoading(null);
 
     if (signInError) {
       setError(signInError.message);
@@ -167,29 +180,48 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
 
   if (!isAuthenticated) {
     return (
-      <section className="mt-8 rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
-        <p className="mb-4 text-slate-700">Sign in with Google to manage your private bookmarks.</p>
-        <button
-          type="button"
-          onClick={signInWithGoogle}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          Continue with Google
-        </button>
-        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+      <section className="relative rounded-3xl border border-slate-300/80 bg-slate-50/90 p-6 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.5)] backdrop-blur md:p-8 lg:h-full">
+        <h2 className="font-display text-2xl font-semibold text-slate-900">Welcome back</h2>
+        <p className="mt-2 text-sm text-slate-600 md:text-base">
+          Use Google OAuth to create a new account or log in to an existing one.
+        </p>
+
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl border border-slate-300 bg-slate-100 p-1.5">
+          <button
+            type="button"
+            disabled={authLoading !== null}
+            onClick={() => void signInWithGoogle("signup")}
+            className="rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {authLoading === "signup" ? "Redirecting..." : "Sign up"}
+          </button>
+          <button
+            type="button"
+            disabled={authLoading !== null}
+            onClick={() => void signInWithGoogle("login")}
+            className="rounded-lg bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {authLoading === "login" ? "Redirecting..." : "Log in"}
+          </button>
+        </div>
+
+        {error ? <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
       </section>
     );
   }
 
   return (
-    <section className="mt-8 rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Your Bookmarks</h2>
+    <section className="relative rounded-3xl border border-slate-300/80 bg-slate-50/90 p-6 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.5)] backdrop-blur md:p-8 lg:h-full">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-semibold text-slate-900">Your bookmarks</h2>
+          <p className="mt-1 text-sm text-slate-500">Private and synced in real time.</p>
+        </div>
         <button
           type="button"
           disabled={signingOut}
           onClick={handleSignOut}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {signingOut ? "Signing out..." : "Sign out"}
         </button>
@@ -200,45 +232,48 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="Bookmark title"
-          className="rounded-md border border-slate-300 px-3 py-2"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
         />
         <input
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           placeholder="https://example.com"
-          className="rounded-md border border-slate-300 px-3 py-2"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
         />
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? "Adding..." : "Add"}
+          {loading ? "Adding..." : "Add bookmark"}
         </button>
       </form>
 
-      {error ? <p className="mb-4 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
 
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {bookmarks.map((bookmark) => (
           <li
             key={bookmark.id}
-            className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-3"
+            className="group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-cyan-200 hover:shadow-[0_16px_35px_-24px_rgba(6,182,212,0.6)]"
           >
-            <a
-              href={bookmark.url}
-              target="_blank"
-              rel="noreferrer"
-              className="min-w-0 flex-1 truncate text-slate-900 underline"
-              title={bookmark.title}
-            >
-              {bookmark.title}
-            </a>
+            <div className="min-w-0 flex-1">
+              <a
+                href={bookmark.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block truncate text-sm font-semibold text-slate-900 underline-offset-4 group-hover:underline"
+                title={bookmark.title}
+              >
+                {bookmark.title}
+              </a>
+              <p className="mt-1 truncate text-xs text-slate-500">{bookmark.url}</p>
+            </div>
             <button
               type="button"
               onClick={() => handleDelete(bookmark.id)}
-              className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
             >
               Delete
             </button>
@@ -247,7 +282,9 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
       </ul>
 
       {bookmarks.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-600">No bookmarks yet. Add your first link.</p>
+        <p className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+          No bookmarks yet. Add your first link to start your library.
+        </p>
       ) : null}
     </section>
   );

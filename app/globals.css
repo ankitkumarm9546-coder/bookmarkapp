@@ -9,3 +9,16 @@
 * {
   box-sizing: border-box;
 }
+
+body {
+  font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(1000px 500px at 0% 0%, rgba(34, 211, 238, 0.15), transparent 50%),
+    radial-gradient(900px 450px at 100% 0%, rgba(16, 185, 129, 0.12), transparent 50%),
+    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+  min-height: 100vh;
+}
+
+.font-display {
+  font-family: "Space Grotesk", "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+}

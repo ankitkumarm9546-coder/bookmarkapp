@@ -14,19 +14,25 @@ type Bookmark = {
 type BookmarkManagerProps = {
   isAuthenticated: boolean;
   userId: string | null;
+  userEmail: string | null;
 };
 
-export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProps) {
+export function BookmarkManager({ isAuthenticated, userId, userEmail }: BookmarkManagerProps) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"latest" | "oldest" | "az">("latest");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
-  const [authLoading, setAuthLoading] = useState<"signup" | "login" | null>(null);
+  const [authMode, setAuthMode] = useState<"signup" | "login">("login");
+  const [authLoading, setAuthLoading] = useState(false);
 
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  const profileInitial = (userEmail?.trim()?.charAt(0) ?? "U").toUpperCase();
 
   const loadBookmarks = useCallback(async () => {
     if (!userId) return;
@@ -90,9 +96,9 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
     tabChannel.close();
   };
 
-  const signInWithGoogle = async (mode: "signup" | "login") => {
+  const signInWithGoogle = async () => {
     setError(null);
-    setAuthLoading(mode);
+    setAuthLoading(true);
 
     const callbackUrl = `${window.location.origin}/auth/callback`;
 
@@ -101,7 +107,7 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
       options: {
         redirectTo: callbackUrl,
         queryParams:
-          mode === "signup"
+          authMode === "signup"
             ? {
                 prompt: "consent",
                 access_type: "offline"
@@ -112,7 +118,7 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
       }
     });
 
-    setAuthLoading(null);
+    setAuthLoading(false);
 
     if (signInError) {
       setError(signInError.message);
@@ -178,114 +184,193 @@ export function BookmarkManager({ isAuthenticated, userId }: BookmarkManagerProp
     router.refresh();
   };
 
+  const sortedBookmarks = [...bookmarks].sort((a, b) => {
+    if (sortBy === "oldest") return a.created_at.localeCompare(b.created_at);
+    if (sortBy === "az") return a.title.localeCompare(b.title);
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  const filteredBookmarks = sortedBookmarks.filter((bookmark) => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return bookmark.title.toLowerCase().includes(query) || bookmark.url.toLowerCase().includes(query);
+  });
+
   if (!isAuthenticated) {
     return (
-      <section className="relative rounded-3xl border border-slate-300/80 bg-slate-50/90 p-6 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.5)] backdrop-blur md:p-8 lg:h-full">
-        <h2 className="font-display text-2xl font-semibold text-slate-900">Welcome back</h2>
-        <p className="mt-2 text-sm text-slate-600 md:text-base">
-          Use Google OAuth to create a new account or log in to an existing one.
-        </p>
+      <section className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm md:p-9">
+        <h2 className="font-display text-3xl font-semibold text-slate-900">{authMode === "signup" ? "Welcome to Smart Bookmark" : "Welcome back"}</h2>
+        <p className="mt-2 text-slate-600">{authMode === "signup" ? "Create your account and start saving links instantly." : "Save your important links. Access them anywhere. Instantly."}</p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl border border-slate-300 bg-slate-100 p-1.5">
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-100 p-1.5">
           <button
             type="button"
-            disabled={authLoading !== null}
-            onClick={() => void signInWithGoogle("signup")}
-            className="rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => setAuthMode("signup")}
+            className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+              authMode === "signup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-slate-200"
+            }`}
           >
-            {authLoading === "signup" ? "Redirecting..." : "Sign up"}
+            Sign up
           </button>
           <button
             type="button"
-            disabled={authLoading !== null}
-            onClick={() => void signInWithGoogle("login")}
-            className="rounded-lg bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => setAuthMode("login")}
+            className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+              authMode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-slate-200"
+            }`}
           >
-            {authLoading === "login" ? "Redirecting..." : "Log in"}
+            Log in
           </button>
         </div>
 
-        {error ? <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+        <button
+          type="button"
+          disabled={authLoading}
+          onClick={() => void signInWithGoogle()}
+          className="mt-5 w-full rounded-xl border border-sky-200 bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {authLoading ? "Redirecting..." : "Continue with Google"}
+        </button>
+
+        <p className="mt-4 text-xs text-slate-500">No password required. Secure sign-in with Google OAuth only.</p>
+
+        {error ? <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
       </section>
     );
   }
 
   return (
-    <section className="relative rounded-3xl border border-slate-300/80 bg-slate-50/90 p-6 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.5)] backdrop-blur md:p-8 lg:h-full">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div>
-          <h2 className="font-display text-2xl font-semibold text-slate-900">Your bookmarks</h2>
-          <p className="mt-1 text-sm text-slate-500">Private and synced in real time.</p>
+          <h3 className="font-display text-2xl font-semibold text-slate-900">Smart Bookmark</h3>
+          <p className="text-sm text-slate-600">Your private bookmark manager</p>
         </div>
-        <button
-          type="button"
-          disabled={signingOut}
-          onClick={handleSignOut}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {signingOut ? "Signing out..." : "Sign out"}
-        </button>
-      </div>
-
-      <form onSubmit={handleAdd} className="mb-6 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Bookmark title"
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-        />
-        <input
-          type="url"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://example.com"
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? "Adding..." : "Add bookmark"}
-        </button>
-      </form>
-
-      {error ? <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
-
-      <ul className="space-y-3">
-        {bookmarks.map((bookmark) => (
-          <li
-            key={bookmark.id}
-            className="group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-cyan-200 hover:shadow-[0_16px_35px_-24px_rgba(6,182,212,0.6)]"
-          >
-            <div className="min-w-0 flex-1">
-              <a
-                href={bookmark.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block truncate text-sm font-semibold text-slate-900 underline-offset-4 group-hover:underline"
-                title={bookmark.title}
-              >
-                {bookmark.title}
-              </a>
-              <p className="mt-1 truncate text-xs text-slate-500">{bookmark.url}</p>
+        <div className="flex items-center gap-3">
+          <div className="group relative">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-sm font-semibold text-sky-800">
+              {profileInitial}
             </div>
-            <button
-              type="button"
-              onClick={() => handleDelete(bookmark.id)}
-              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
+            <span className="pointer-events-none absolute right-0 top-12 hidden w-max rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm group-hover:block">
+              {userEmail ?? "No email"}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={signingOut}
+            onClick={handleSignOut}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {signingOut ? "Signing out..." : "Sign out"}
+          </button>
+        </div>
+      </header>
 
-      {bookmarks.length === 0 ? (
-        <p className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-          No bookmarks yet. Add your first link to start your library.
-        </p>
-      ) : null}
-    </section>
+      <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4">
+            <h3 className="font-display text-2xl font-semibold text-slate-900">Add a new bookmark</h3>
+            <p className="mt-2 text-sm text-slate-600">Paste a URL and give it a title.</p>
+          </div>
+
+          <form onSubmit={handleAdd} className="mt-5 space-y-3">
+            <input
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="https://example.com"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+            />
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="e.g. Supabase Docs"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Saving..." : "Save Bookmark"}
+            </button>
+          </form>
+
+          <p className="mt-4 text-xs text-slate-500">Bookmarks sync instantly across tabs.</p>
+        </article>
+
+        <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="font-display text-2xl font-semibold text-slate-900">Your bookmarks</h3>
+              <p className="mt-1 text-sm text-slate-600">Synced instantly across all sessions.</p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search bookmarks..."
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 outline-none transition focus:border-sky-500"
+              />
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as "latest" | "oldest" | "az")}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 outline-none"
+              >
+                <option value="latest">Latest</option>
+                <option value="oldest">Oldest</option>
+                <option value="az">A-Z</option>
+              </select>
+            </div>
+          </div>
+
+          {error ? <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+
+          <ul className="mt-5 space-y-3">
+            {filteredBookmarks.map((bookmark) => (
+              <li
+                key={bookmark.id}
+                className="group flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
+              >
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={bookmark.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-sm font-semibold text-slate-900 hover:text-sky-700"
+                    title={bookmark.title}
+                  >
+                    {bookmark.title}
+                  </a>
+                  <p className="mt-1 truncate text-xs text-slate-500">{bookmark.url}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={bookmark.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-50"
+                  >
+                    Open
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(bookmark.id)}
+                    className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {filteredBookmarks.length === 0 ? (
+            <p className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+              No bookmarks yet. Start by adding your first link. Your bookmarks are private and sync in realtime.
+            </p>
+          ) : null}
+        </article>
+      </section>
+    </div>
   );
 }

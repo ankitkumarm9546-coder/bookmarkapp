@@ -29,7 +29,7 @@ export default async function HomePage() {
 
             <ul className="mt-8 space-y-3 text-slate-700">
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">Private bookmarks, visible only to you</li>
-              <li className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">Realtime updates across tabs and sessions</li>
+              <li className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">Realtime updates</li>
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">Save URL + title in seconds</li>
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">Secure Google OAuth login only</li>
             </ul>
